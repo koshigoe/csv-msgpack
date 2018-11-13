@@ -1,33 +1,129 @@
 package main
 
 import (
+	"encoding/csv"
 	"fmt"
 	"io"
 	"log"
 	"os"
-	"encoding/csv"
 
 	"github.com/urfave/cli"
 	"github.com/vmihailenco/msgpack"
 )
 
+type CsvResult struct {
+	Error error
+	Row   []string
+}
+
+type MsgpackResult struct {
+	Error error
+	Row   []byte
+}
+
+type WriteResult struct {
+	Error error
+}
+
+func csvStreamOwner(done <-chan interface{}, r io.Reader) <-chan CsvResult {
+	csvStream := make(chan CsvResult)
+
+	go func(r io.Reader) {
+		defer close(csvStream)
+
+		reader := csv.NewReader(r)
+		for {
+			row, err := reader.Read()
+			if err == io.EOF {
+				return
+			}
+			result := CsvResult{Error: err, Row: row}
+			select {
+			case <-done:
+				return
+			case csvStream <- result:
+			}
+
+		}
+	}(r)
+
+	return csvStream
+}
+
+func msgpackStreamOwner(done <-chan interface{}, csvStream <-chan CsvResult) <-chan MsgpackResult {
+	msgpackStream := make(chan MsgpackResult)
+
+	go func(csvStream <-chan CsvResult) {
+		defer close(msgpackStream)
+
+		var result MsgpackResult
+
+		for csvResult := range csvStream {
+			if csvResult.Error != nil {
+				result = MsgpackResult{Error: csvResult.Error, Row: nil}
+				msgpackStream <- result
+				break
+			}
+
+			b, err := msgpack.Marshal(csvResult.Row)
+			result = MsgpackResult{Error: err, Row: b}
+			select {
+			case <-done:
+				return
+			case msgpackStream <- result:
+			}
+		}
+	}(csvStream)
+
+	return msgpackStream
+}
+
+func writeStreamOwner(done <-chan interface{}, msgpackStream <-chan MsgpackResult, w io.Writer) <-chan WriteResult {
+	writeStream := make(chan WriteResult)
+
+	go func(w io.Writer) {
+		defer close(writeStream)
+
+		var result WriteResult
+		for msgpackResult := range msgpackStream {
+			if msgpackResult.Error != nil {
+				result = WriteResult{Error: msgpackResult.Error}
+				writeStream <- result
+				break
+			}
+
+			select {
+			case <-done:
+				return
+			default:
+				fmt.Fprintf(w, "%s", msgpackResult.Row)
+			}
+		}
+
+		result = WriteResult{Error: nil}
+		writeStream <- result
+	}(w)
+
+	return writeStream
+}
+
 func Encode(r io.Reader, w io.Writer) error {
-	reader := csv.NewReader(r)
+	done := make(chan interface{})
+	defer close(done)
 
-	for {
-		row, err := reader.Read()
-		if err == io.EOF {
+	csvStream := csvStreamOwner(done, r)
+	msgpackStream := msgpackStreamOwner(done, csvStream)
+	writeStream := writeStreamOwner(done, msgpackStream, w)
+
+	for result := range writeStream {
+		if result.Error != nil {
+			return result.Error
+		}
+		select {
+		case <-done:
 			break
-		} else if err != nil {
-			return err
+		default:
 		}
-
-		b, err := msgpack.Marshal(row)
-		if err != nil {
-			return err
-		}
-
-		fmt.Fprintf(w, "%s", b)
 	}
 
 	return nil
@@ -87,7 +183,7 @@ func encodeAction(c *cli.Context) error {
 	return Encode(r, w)
 }
 
-func decodeAction (c *cli.Context) error {
+func decodeAction(c *cli.Context) error {
 	var r io.ReadCloser
 	var w io.WriteCloser
 	var err error
@@ -128,11 +224,11 @@ func main() {
 			Action:  encodeAction,
 			Flags: []cli.Flag{
 				cli.StringFlag{
-					Name: "input, i",
+					Name:  "input, i",
 					Usage: "Input file path. (default STDIN)",
 				},
 				cli.StringFlag{
-					Name: "output, o",
+					Name:  "output, o",
 					Usage: "Output file path. (default STDOUT)",
 				},
 			},
@@ -144,11 +240,11 @@ func main() {
 			Action:  decodeAction,
 			Flags: []cli.Flag{
 				cli.StringFlag{
-					Name: "input, i",
+					Name:  "input, i",
 					Usage: "Input file path. (default STDIN)",
 				},
 				cli.StringFlag{
-					Name: "output, o",
+					Name:  "output, o",
 					Usage: "Output file path. (default STDOUT)",
 				},
 			},
