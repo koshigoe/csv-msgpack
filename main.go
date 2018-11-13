@@ -58,11 +58,63 @@ func Decode(r io.Reader, w io.Writer) error {
 }
 
 func encodeAction(c *cli.Context) error {
-	return Encode(os.Stdin, os.Stdout)
+	var r io.ReadCloser
+	var w io.WriteCloser
+	var err error
+
+	inputPath := c.String("input")
+	if len(inputPath) > 0 {
+		r, err = os.Open(inputPath)
+		if err != nil {
+			return err
+		}
+		defer r.Close()
+	} else {
+		r = os.Stdin
+	}
+
+	outputPath := c.String("output")
+	if len(outputPath) > 0 {
+		w, err = os.Create(outputPath)
+		if err != nil {
+			return err
+		}
+		defer w.Close()
+	} else {
+		w = os.Stdout
+	}
+
+	return Encode(r, w)
 }
 
 func decodeAction (c *cli.Context) error {
-	return Decode(os.Stdin, os.Stdout)
+	var r io.ReadCloser
+	var w io.WriteCloser
+	var err error
+
+	inputPath := c.String("input")
+	if len(inputPath) > 0 {
+		r, err = os.Open(inputPath)
+		if err != nil {
+			return err
+		}
+		defer r.Close()
+	} else {
+		r = os.Stdin
+	}
+
+	outputPath := c.String("output")
+	if len(outputPath) > 0 {
+		w, err = os.Create(outputPath)
+		if err != nil {
+			return err
+		}
+		defer w.Close()
+	} else {
+		w = os.Stdout
+	}
+
+	return Decode(r, w)
 }
 
 func main() {
@@ -74,12 +126,32 @@ func main() {
 			Aliases: []string{"e"},
 			Usage:   "output MessagePack",
 			Action:  encodeAction,
+			Flags: []cli.Flag{
+				cli.StringFlag{
+					Name: "input, i",
+					Usage: "Input file path. (default STDIN)",
+				},
+				cli.StringFlag{
+					Name: "output, o",
+					Usage: "Output file path. (default STDOUT)",
+				},
+			},
 		},
 		{
 			Name:    "decode",
 			Aliases: []string{"d"},
 			Usage:   "output CSV",
 			Action:  decodeAction,
+			Flags: []cli.Flag{
+				cli.StringFlag{
+					Name: "input, i",
+					Usage: "Input file path. (default STDIN)",
+				},
+				cli.StringFlag{
+					Name: "output, o",
+					Usage: "Output file path. (default STDOUT)",
+				},
+			},
 		},
 	}
 
