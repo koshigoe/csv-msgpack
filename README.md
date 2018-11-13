@@ -42,7 +42,7 @@ Benchmark.bm(20) do |x|
   end
 
   x.report('csv-msgpack encode') do
-    Open3.popen3("cat #{path} | ./csv-msgpack encode") do |stdin, stdout, stderr, wait_thr|
+    Open3.popen3("./csv-msgpack encode -i #{path}") do |stdin, stdout, stderr, wait_thr|
       stdin.close
 
       u = MessagePack::Unpacker.new(stdout)
@@ -55,8 +55,7 @@ end
 __END__
 
 $ ruby benchmark-parse.rb 100chr-100col-10000row.csv
-
                            user     system      total        real
-CSV.foreach          225.079410   1.639720 226.719130 (238.925101)
-csv-msgpack encode     0.495993   0.072850   4.688697 (  3.854527)
+CSV.foreach          217.847741   1.345944 219.193685 (226.247598)
+csv-msgpack encode     0.579895   0.099204   4.679996 (  3.981893)
 ```
