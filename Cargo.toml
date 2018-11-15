@@ -1,0 +1,9 @@
+[package]
+name = "csv-msgpack"
+version = "0.1.0"
+authors = ["koshigoe <koshigoeb@gmail.com>"]
+
+[dependencies]
+csv = "1.0.2"
+serde = "1.0.80"
+rmp-serde = "0.13.7"
