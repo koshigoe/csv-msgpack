@@ -5,7 +5,7 @@ require 'open3'
 
 path = ARGV[0]
 
-Benchmark.bm(10) do |x|
+Benchmark.bm(12) do |x|
   x.report('csv-msgpack') do
     Open3.popen3("../target/release/csv-msgpack < #{path}") do |stdin, stdout, stderr, wait_thr|
       stdin.close
