@@ -31,9 +31,9 @@ Benchmark
 $ cd benchmark
 $ gem install msgpack
 $ ruby make-csv.rb
-$ ruby -v benchmark-parse.rb 100chr-100col-10000row.csv
+$ ruby -v benchmark-parse.rb data.csv
 ruby 2.5.3p105 (2018-10-18 revision 65156) [x86_64-linux]
                    user     system      total        real
-csv-msgpack    0.186039   0.058284   0.797959 (  0.553839)
-CSV.foreach  128.064341   0.081668 128.146009 (128.161941)
+csv-msgpack    0.133354   0.015763   0.326335 (  0.177472)
+CSV.foreach   26.207001   0.028033  26.235034 ( 26.236198)
 ```
